@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
+import { useFonts, VT323_400Regular } from '@expo-google-fonts/vt323';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
 import {
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ PressStart2P_400Regular });
+  const [fontsLoaded] = useFonts({ VT323_400Regular });
   const [messages, setMessages] = useState([
     { id: 'intro', text: 'Talk to me. What’s the move today?', isBrother: true },
   ]);
@@ -58,11 +58,13 @@ export default function App() {
         body: JSON.stringify({ message: trimmed }),
       });
 
+      const data = await response.json().catch(() => null);
+
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const apiError = data && typeof data.error === 'string' ? data.error : 'Server error';
+        throw new Error(`${apiError} (${response.status})`);
       }
 
-      const data = await response.json();
       const replyText = typeof data.reply === 'string' ? data.reply : 'No reply.';
 
       setMessages((prev) => [
@@ -81,7 +83,7 @@ export default function App() {
       <StatusBar style="light" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>BROTHER</Text>
-        <Text style={styles.headerSubtitle}>Straight-dope advice · 8-bit mode</Text>
+        <Text style={styles.headerSubtitle}>Straight-dope advice · 16-bit mode</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.messages}>
@@ -139,15 +141,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#E0E0E0',
-    fontFamily: 'PressStart2P_400Regular',
-    fontSize: 18,
-    letterSpacing: 1,
+    fontFamily: 'VT323_400Regular',
+    fontSize: 26,
+    letterSpacing: 2,
   },
   headerSubtitle: {
     marginTop: 8,
     color: '#7A8190',
-    fontFamily: 'PressStart2P_400Regular',
-    fontSize: 10,
+    fontFamily: 'VT323_400Regular',
+    fontSize: 14,
   },
   messages: {
     paddingHorizontal: 16,
@@ -182,14 +184,14 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: '#E0E0E0',
-    fontFamily: 'PressStart2P_400Regular',
-    fontSize: 12,
-    lineHeight: 20,
+    fontFamily: 'VT323_400Regular',
+    fontSize: 18,
+    lineHeight: 22,
   },
   errorText: {
     color: '#FF6B00',
-    fontFamily: 'PressStart2P_400Regular',
-    fontSize: 10,
+    fontFamily: 'VT323_400Regular',
+    fontSize: 14,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
@@ -210,8 +212,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: '#00FF41',
-    fontFamily: 'PressStart2P_400Regular',
-    fontSize: 12,
+    fontFamily: 'VT323_400Regular',
+    fontSize: 18,
   },
   sendButton: {
     marginLeft: 12,
@@ -223,6 +225,6 @@ const styles = StyleSheet.create({
   },
   sendIcon: {
     color: '#00FF41',
-    fontSize: 18,
+    fontSize: 20,
   },
 });

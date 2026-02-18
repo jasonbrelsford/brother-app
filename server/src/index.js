@@ -31,8 +31,13 @@ app.get("/", (_req, res) => {
 app.get("/health", async (_req, res) => {
   try {
     const result = await pool.query("SELECT 1 as ok");
-    res.json({ status: "ok", db: result.rows[0].ok });
+    res.json({
+      status: "ok",
+      db: result.rows[0].ok,
+      geminiConfigured: Boolean(geminiApiKey),
+    });
   } catch (error) {
+    console.error("Health check failed", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
@@ -60,7 +65,9 @@ app.post("/chat", async (req, res) => {
 
     return res.json({ reply });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    console.error("Gemini error", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return res.status(500).json({ error: message });
   }
 });
 
