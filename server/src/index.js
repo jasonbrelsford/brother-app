@@ -42,6 +42,27 @@ app.get("/health", async (_req, res) => {
   }
 });
 
+app.get("/models", async (_req, res) => {
+  if (!geminiClient) {
+    return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+  }
+
+  try {
+    const models = await geminiClient.listModels();
+    const formatted = models.models?.map((model) => ({
+      name: model.name,
+      supportedMethods: model.supportedGenerationMethods,
+      displayName: model.displayName,
+    }));
+
+    return res.json({ models: formatted ?? [] });
+  } catch (error) {
+    console.error("List models error", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return res.status(500).json({ error: message });
+  }
+});
+
 app.post("/chat", async (req, res) => {
   const { message } = req.body || {};
 
@@ -55,7 +76,7 @@ app.post("/chat", async (req, res) => {
 
   try {
     const model = geminiClient.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-1.0-pro",
       systemInstruction:
         "You are Brother: a direct, practical, older-brother mentor. Keep replies concise, tough, supportive, and action-oriented. No fluff.",
     });
