@@ -20,6 +20,14 @@ const pool = new Pool({
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const geminiClient = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
+app.get("/", (_req, res) => {
+  res.json({
+    status: "ok",
+    message: "Brother API is running",
+    endpoints: ["/health", "/chat"],
+  });
+});
+
 app.get("/health", async (_req, res) => {
   try {
     const result = await pool.query("SELECT 1 as ok");

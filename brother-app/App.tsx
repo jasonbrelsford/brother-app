@@ -1,7 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -13,19 +15,66 @@ import {
 
 export default function App() {
   const [fontsLoaded] = useFonts({ PressStart2P_400Regular });
-  const messages = [
-    { id: 1, text: 'You still whining about being alone?', isBrother: true },
-    { id: 2, text: "Yeah man, it's rough.", isBrother: false },
-    {
-      id: 3,
-      text: "Then stop complaining and go meet some brothers. There's a lifting crew in Saint Paul tonight. Reply YES.",
-      isBrother: true,
-    },
-  ];
+  const [messages, setMessages] = useState([
+    { id: 'intro', text: 'Talk to me. What’s the move today?', isBrother: true },
+  ]);
+  const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState('');
+
+  const apiBaseUrl = useMemo(() => {
+    return (
+      process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') ??
+      'https://brother-app.onrender.com'
+    );
+  }, []);
 
   if (!fontsLoaded) {
     return null;
   }
+
+  const handleSend = async () => {
+    const trimmed = input.trim();
+    if (!trimmed || isSending) {
+      return;
+    }
+
+    if (!apiBaseUrl) {
+      setError('Set EXPO_PUBLIC_API_URL to your Render API URL.');
+      return;
+    }
+
+    setError('');
+    setIsSending(true);
+    setInput('');
+
+    const userMessage = { id: `user-${Date.now()}`, text: trimmed, isBrother: false };
+    setMessages((prev) => [...prev, userMessage]);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: trimmed }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const replyText = typeof data.reply === 'string' ? data.reply : 'No reply.';
+
+      setMessages((prev) => [
+        ...prev,
+        { id: `brother-${Date.now()}`, text: replyText, isBrother: true },
+      ]);
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : 'Something went wrong.');
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -53,14 +102,23 @@ export default function App() {
         ))}
       </ScrollView>
 
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
       <View style={styles.inputBar}>
         <TextInput
           style={styles.input}
           placeholder="Talk to Brother..."
           placeholderTextColor="#3B404A"
+          value={input}
+          onChangeText={setInput}
+          editable={!isSending}
         />
-        <TouchableOpacity style={styles.sendButton}>
-          <Text style={styles.sendIcon}>➤</Text>
+        <TouchableOpacity style={styles.sendButton} onPress={handleSend} disabled={isSending}>
+          {isSending ? (
+            <ActivityIndicator color="#00FF41" />
+          ) : (
+            <Text style={styles.sendIcon}>➤</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -128,6 +186,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 20,
   },
+  errorText: {
+    color: '#FF6B00',
+    fontFamily: 'PressStart2P_400Regular',
+    fontSize: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -159,6 +224,5 @@ const styles = StyleSheet.create({
   sendIcon: {
     color: '#00FF41',
     fontSize: 18,
-  },
   },
 });
