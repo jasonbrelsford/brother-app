@@ -2,7 +2,6 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import pkg from "pg";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const { Pool } = pkg;
 
@@ -17,8 +16,9 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : undefined,
 });
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
-const geminiClient = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
+const openclawGatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
+const openclawGatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
+const openclawAgentId = process.env.OPENCLAW_AGENT_ID || "main";
 
 app.get("/", (_req, res) => {
   res.json({
@@ -34,32 +34,11 @@ app.get("/health", async (_req, res) => {
     res.json({
       status: "ok",
       db: result.rows[0].ok,
-      geminiConfigured: Boolean(geminiApiKey),
+      openclawConfigured: Boolean(openclawGatewayUrl && openclawGatewayToken),
     });
   } catch (error) {
     console.error("Health check failed", error);
     res.status(500).json({ status: "error", message: error.message });
-  }
-});
-
-app.get("/models", async (_req, res) => {
-  if (!geminiClient) {
-    return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
-  }
-
-  try {
-    const models = await geminiClient.listModels();
-    const formatted = models.models?.map((model) => ({
-      name: model.name,
-      supportedMethods: model.supportedGenerationMethods,
-      displayName: model.displayName,
-    }));
-
-    return res.json({ models: formatted ?? [] });
-  } catch (error) {
-    console.error("List models error", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return res.status(500).json({ error: message });
   }
 });
 
@@ -70,23 +49,42 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "message is required" });
   }
 
-  if (!geminiClient) {
-    return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+  if (!openclawGatewayUrl || !openclawGatewayToken) {
+    return res.status(500).json({ error: "OpenClaw gateway is not configured" });
   }
 
   try {
-    const model = geminiClient.getGenerativeModel({
-      model: "gemini-1.0-pro",
-      systemInstruction:
-        "You are Brother: a direct, practical, older-brother mentor. Keep replies concise, tough, supportive, and action-oriented. No fluff.",
+    const response = await fetch(`${openclawGatewayUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openclawGatewayToken}`,
+        "x-openclaw-agent-id": openclawAgentId,
+      },
+      body: JSON.stringify({
+        model: "openclaw",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are Brother: a direct, practical, older-brother mentor. Keep replies concise, tough, supportive, and action-oriented. No fluff.",
+          },
+          { role: "user", content: message },
+        ],
+      }),
     });
 
-    const result = await model.generateContent(message);
-    const reply = result.response.text().trim();
+    const data = await response.json().catch(() => null);
 
-    return res.json({ reply });
+    if (!response.ok) {
+      const errorMessage = data?.error?.message || data?.error || "OpenClaw error";
+      throw new Error(`${errorMessage} (${response.status})`);
+    }
+
+    const reply = data?.choices?.[0]?.message?.content?.trim() || "";
+    return res.json({ reply: reply || "No reply." });
   } catch (error) {
-    console.error("Gemini error", error);
+    console.error("OpenClaw error", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return res.status(500).json({ error: message });
   }
