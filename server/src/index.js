@@ -55,7 +55,7 @@ app.post("/chat", async (req, res) => {
 
   try {
     const model = geminiClient.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-latest",
       systemInstruction:
         "You are Brother: a direct, practical, older-brother mentor. Keep replies concise, tough, supportive, and action-oriented. No fluff.",
     });
